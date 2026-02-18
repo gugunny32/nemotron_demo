@@ -5,20 +5,38 @@ from pathlib import Path
 import base64
 import io
 from PIL import Image
-import getpass
 
 # nv-ingest imports
 from nv_ingest.framework.orchestration.ray.util.pipeline.pipeline_runners import run_pipeline
 from nv_ingest_client.client import Ingestor, NvIngestClient
 from nv_ingest_api.util.message_brokers.simple_message_broker import SimpleClient
 
-# API Key Setup
-# We need an NVIDIA API Key for the Remote NIMs (Extraction & Generation).
-if not os.environ.get("NVIDIA_API_KEY"):
-    print("[ACTION REQUIRED] Please enter your NVIDIA API Key (starts with 'nvapi-').")
-    os.environ["NVIDIA_API_KEY"] = getpass.getpass("Enter NVIDIA API Key: ")
+# Local NIM Endpoint Setup
+def configure_local_nim_endpoints():
+    endpoint_defaults = {
+        "OCR_HTTP_ENDPOINT": "http://localhost:8009",
+        "OCR_INFER_PROTOCOL": "http",
+        "OCR_MODEL_NAME": "paddle",
+        "YOLOX_HTTP_ENDPOINT": "http://localhost:8000",
+        "YOLOX_INFER_PROTOCOL": "http",
+        "YOLOX_TABLE_STRUCTURE_HTTP_ENDPOINT": "http://localhost:8006",
+        "YOLOX_TABLE_STRUCTURE_INFER_PROTOCOL": "http",
+        "YOLOX_GRAPHIC_ELEMENTS_HTTP_ENDPOINT": "http://localhost:8003",
+        "YOLOX_GRAPHIC_ELEMENTS_INFER_PROTOCOL": "http",
+    }
+
+    for key, value in endpoint_defaults.items():
+        os.environ.setdefault(key, value)
+
+    print("[INFO] Using local NIM endpoints for extraction.")
+
+
+configure_local_nim_endpoints()
+
+if os.environ.get("NVIDIA_API_KEY") or os.environ.get("NGC_API_KEY"):
+    print("[INFO] NGC/NVIDIA API key detected (optional for some local NIM images).")
 else:
-    print("[INFO] NVIDIA API Key detected in environment.")
+    print("[INFO] No API key detected. This is fine if your local NIM containers do not require auth.")
 
 # 1. Download Sample PDF (World Bank Peru 2017)
 PDF_URL = "https://documents1.worldbank.org/curated/en/484531533637705178/pdf/129273-WP-PUBLIC-Peru-2017.pdf"
@@ -31,7 +49,7 @@ if not Path(PDF_PATH).exists():
         f.write(response.content)
 
 # 2. Start nv-ingest in Library Mode
-# This spins up the pipeline locally but uses remote NIMs by default for inference.
+# Pipeline runs locally and picks endpoint values from environment variables.
 print("[INFO] Starting Ingestion Pipeline (Library Mode)...")
 run_pipeline(
     block=False,

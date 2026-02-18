@@ -1,64 +1,84 @@
 services:
-  etcd:
-    container_name: milvus-etcd
-    image: quay.io/coreos/etcd:v3.5.25
-    environment:
-      - ETCD_AUTO_COMPACTION_MODE=revision
-      - ETCD_AUTO_COMPACTION_RETENTION=1000
-      - ETCD_QUOTA_BACKEND_BYTES=4294967296
-      - ETCD_SNAPSHOT_COUNT=50000
-    volumes:
-      - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/etcd:/etcd
-    command: etcd -advertise-client-urls=http://etcd:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
-    healthcheck:
-      test: ["CMD", "etcdctl", "endpoint", "health"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
-
-  minio:
-    container_name: milvus-minio
-    image: minio/minio:RELEASE.2024-12-18T13-15-44Z-cpuv1
-    environment:
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin
+  nim-page-elements:
+    container_name: nim-page-elements
+    image: ${NIM_PAGE_ELEMENTS_IMAGE:-nvcr.io/nim/nvidia/nemoretriever-page-elements-v2:1.5.0}
+    profiles: ["nim"]
     ports:
-      - "9001:9001"
-      - "9000:9000"
-    volumes:
-      - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/minio:/minio_data
-    command: minio server /minio_data --console-address ":9001"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
-
-  standalone:
-    container_name: milvus-standalone
-    image: milvusdb/milvus:v2.6.10
-    command: ["milvus", "run", "standalone"]
-    security_opt:
-    - seccomp:unconfined
+      - "${NIM_PAGE_ELEMENTS_HTTP_PORT:-8000}:8000"
+      - "${NIM_PAGE_ELEMENTS_GRPC_PORT:-8001}:8001"
+      - "${NIM_PAGE_ELEMENTS_METRICS_PORT:-8002}:8002"
     environment:
-      ETCD_ENDPOINTS: etcd:2379
-      MINIO_ADDRESS: minio:9000
-      MQ_TYPE: woodpecker
-    volumes:
-      - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/milvus:/var/lib/milvus
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
-      interval: 30s
-      start_period: 90s
-      timeout: 20s
-      retries: 3
-    ports:
-      - "19530:19530"
-      - "9091:9091"
-    depends_on:
-      - "etcd"
-      - "minio"
+      - NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}
+      - NVIDIA_DRIVER_CAPABILITIES=${NVIDIA_DRIVER_CAPABILITIES:-compute,utility}
+      - NGC_API_KEY=${NGC_API_KEY:-}
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY:-}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
 
-networks:
-  default:
-    name: milvus
+  nim-ocr:
+    container_name: nim-ocr
+    image: ${NIM_OCR_IMAGE:-nvcr.io/nim/baidu/paddleocr:1.5.0}
+    profiles: ["nim"]
+    ports:
+      - "${NIM_OCR_HTTP_PORT:-8009}:8000"
+      - "${NIM_OCR_GRPC_PORT:-8010}:8001"
+      - "${NIM_OCR_METRICS_PORT:-8011}:8002"
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}
+      - NVIDIA_DRIVER_CAPABILITIES=${NVIDIA_DRIVER_CAPABILITIES:-compute,utility}
+      - NGC_API_KEY=${NGC_API_KEY:-}
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY:-}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  nim-yolox-table:
+    container_name: nim-yolox-table
+    image: ${NIM_YOLOX_TABLE_IMAGE:-nvcr.io/nim/nvidia/nemoretriever-table-structure-v1:1.5.0}
+    profiles: ["nim"]
+    ports:
+      - "${NIM_YOLOX_TABLE_HTTP_PORT:-8006}:8000"
+      - "${NIM_YOLOX_TABLE_GRPC_PORT:-8007}:8001"
+      - "${NIM_YOLOX_TABLE_METRICS_PORT:-8008}:8002"
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}
+      - NVIDIA_DRIVER_CAPABILITIES=${NVIDIA_DRIVER_CAPABILITIES:-compute,utility}
+      - NGC_API_KEY=${NGC_API_KEY:-}
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY:-}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  nim-yolox-chart:
+    container_name: nim-yolox-chart
+    image: ${NIM_YOLOX_CHART_IMAGE:-nvcr.io/nim/nvidia/nemoretriever-graphic-elements-v1:1.5.0}
+    profiles: ["nim"]
+    ports:
+      - "${NIM_YOLOX_CHART_HTTP_PORT:-8003}:8000"
+      - "${NIM_YOLOX_CHART_GRPC_PORT:-8004}:8001"
+      - "${NIM_YOLOX_CHART_METRICS_PORT:-8005}:8002"
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}
+      - NVIDIA_DRIVER_CAPABILITIES=${NVIDIA_DRIVER_CAPABILITIES:-compute,utility}
+      - NGC_API_KEY=${NGC_API_KEY:-}
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY:-}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
